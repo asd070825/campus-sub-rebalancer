@@ -1,0 +1,14 @@
+{
+  "name": "campus-sub-rebalancer",
+  "version": "1.0.0",
+  "description": "대학생용 스마트 구독 & 고정 지출 리밸런싱 AI",
+  "keywords": [
+    "fintech",
+    "subscription",
+    "rebalance",
+    "openrouter",
+    "notion"
+  ],
+  "author": "9조 팀프로젝트",
+  "license": "MIT"
+}

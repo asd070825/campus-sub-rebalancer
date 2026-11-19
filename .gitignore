@@ -1,0 +1,15 @@
+# 환경 변수 파일 (API 키 유출 방지)
+.env
+.env.local
+.env.*.local
+
+# Vercel 로컬 빌드 캐시 및 설정
+.vercel
+.vercel_cache/
+
+# Node 의존성 패키지
+node_modules/
+
+# OS 생성 파일
+.DS_Store
+Thumbs.db

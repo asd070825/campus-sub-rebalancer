@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>캠퍼스 서브 리밸런서 - 대학생 스마트 구독 관리 AI</title>
+  <!-- 모던 폰트 및 스타일시트 연결 -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- ==============================================================================
+       상단 글로벌 헤더: 서비스 브랜딩 및 단계별 네비게이션 인디케이터
+       ============================================================================== -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="logo-area">
+        <span class="logo-badge">🎓 AI 9조</span>
+        <h1 class="logo-title">캠퍼스 서브 리밸런서</h1>
+      </div>
+      <div class="step-indicator">
+        <span class="step active"><span class="step-num">1</span> 데이터 입력·인식</span>
+        <span class="step-divider">›</span>
+        <span class="step"><span class="step-num">2</span> AI 가성비 리포트</span>
+        <span class="step-divider">›</span>
+        <span class="step"><span class="step-num">3</span> 노션 대시보드</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==============================================================================
+       메인 컨테이너: 1단계 구독 데이터 수집 및 AI OCR 파싱 뷰
+       ============================================================================== -->
+  <main class="main-container">
+    <!-- 히어로 안내 섹션 -->
+    <section class="hero-section">
+      <h2 class="hero-title">대학생 구독 지출, 영수증 캡처 한 장으로 끝내세요 💡</h2>
+      <p class="hero-desc">
+        카드 결제 승인 문자나 결제 영수증 이미지를 올리면, 
+        <strong>OpenRouter Gemma 4 Vision AI</strong>가 서비스명, 금액, 결제일을 자동으로 쏙 뽑아냅니다.
+      </p>
+    </section>
+
+    <!-- 입력 방식 탭 선택 섹션 -->
+    <section class="input-card">
+      <div class="tab-buttons">
+        <button id="tabImageBtn" class="tab-btn active" type="button">
+          📷 영수증/결제 캡처 이미지
+        </button>
+        <button id="tabTextBtn" class="tab-btn" type="button">
+          💬 카드 승인 문자 직접 붙여넣기
+        </button>
+      </div>
+
+      <!-- 1) 이미지 드래그 앤 드롭 영역 -->
+      <div id="imageInputArea" class="tab-content active">
+        <div id="dropzone" class="dropzone">
+          <input type="file" id="fileInput" accept="image/*" class="file-input-hidden">
+          <div class="dropzone-content">
+            <div class="dropzone-icon">📥</div>
+            <p class="dropzone-main-text">영수증 또는 결제 내역 캡처 이미지를 여기에 끌어다 놓으세요</p>
+            <p class="dropzone-sub-text">PNG, JPG, WEBP 파일 지원 (또는 클릭하여 사진 선택)</p>
+          </div>
+          <!-- 선택된 이미지 미리보기 -->
+          <div id="previewContainer" class="preview-container hidden">
+            <img id="imagePreview" src="" alt="영수증 미리보기" class="image-preview">
+            <button id="removeImageBtn" type="button" class="btn-remove-preview" title="이미지 삭제">✕</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2) 텍스트 붙여넣기 영역 -->
+      <div id="textInputArea" class="tab-content">
+        <div class="textarea-wrapper">
+          <label for="textInput" class="input-label">카드 승인 문자 또는 카카오페이/토스 알림 내용:</label>
+          <textarea id="textInput" class="text-input" rows="5" placeholder="예시:&#10;[신한체크승인] 11/15 14:30 넷플릭스 17,000원 정기결제&#10;[카카오페이] 11/28 쿠팡와우멤버십 7,890원 결제완료"></textarea>
+        </div>
+      </div>
+
+      <!-- AI 분석 트리거 버튼 -->
+      <div class="action-btn-area">
+        <button id="analyzeBtn" class="btn-primary" type="button">
+          <span class="btn-icon">⚡</span>
+          <span class="btn-text">OpenRouter AI로 구독 데이터 자동 추출하기</span>
+        </button>
+      </div>
+
+      <!-- AI 분석 로딩 인디케이터 -->
+      <div id="loadingIndicator" class="loading-area hidden">
+        <div class="spinner"></div>
+        <p class="loading-text">Gemma 4 Vision AI 모델이 영수증에서 구독 내역을 분석 중입니다...</p>
+        <p class="loading-sub">잠시만 기다려 주세요 (약 2~4초 소요)</p>
+      </div>
+    </section>
+
+    <!-- ==============================================================================
+         추출 결과 인터랙티브 검수 & 편집 섹션
+         ============================================================================== -->
+    <section id="resultsSection" class="results-section hidden">
+      <div class="results-header">
+        <div>
+          <h3 class="results-title">AI가 인식한 구독 항목 검수</h3>
+          <p class="results-sub">금액이나 결제일을 클릭하여 바로 수정하거나, 누락된 항목을 추가하세요.</p>
+        </div>
+        <button id="addCustomItemBtn" class="btn-secondary" type="button">
+          ➕ 구독 항목 직접 추가
+        </button>
+      </div>
+
+      <!-- 파싱된 구독 카드 리스트 -->
+      <div id="subscriptionCardsList" class="cards-list">
+        <!-- script.js에서 동적으로 카드 렌더링 -->
+      </div>
+
+      <!-- 지출 통계 및 다음 단계 액션 바 -->
+      <div class="summary-bar">
+        <div class="summary-info">
+          <span class="summary-label">인식된 총 구독:</span>
+          <span id="totalItemsCount" class="summary-count">0건</span>
+          <span class="summary-divider">|</span>
+          <span class="summary-label">월 고정 지출 합계:</span>
+          <span id="totalMonthlyAmount" class="summary-total">0원</span>
+        </div>
+        <div class="summary-actions">
+          <button id="saveDraftBtn" class="btn-outline" type="button">임시 저장</button>
+          <button id="nextStepBtn" class="btn-primary" type="button">
+            2단계: AI 가성비 분석 및 리밸런싱 진행 ›
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==============================================================================
+         2단계: 가성비 분석 및 AI 리밸런싱 리포트 대시보드
+         ============================================================================== -->
+    <section id="step2Section" class="step2-section hidden">
+      <!-- 2단계 헤더 및 학사 일정 선택 -->
+      <div class="step2-header">
+        <div>
+          <span class="step-badge">2단계 분석</span>
+          <h2 class="step2-title">구독 이용 빈도 입력 & AI 리밸런싱</h2>
+          <p class="step2-desc">각 서비스를 한 달에 대략 몇 번 쓰시나요? 슬라이더를 움직여 1회당 단가를 확인해 보세요.</p>
+        </div>
+        <div class="academic-status-box">
+          <label for="academicStatusSelect" class="academic-label">현재 나의 학사 상황:</label>
+          <select id="academicStatusSelect" class="academic-select">
+            <option value="2학기 기말고사 집중 기간" selected>📚 기말고사 집중 기간 (12월)</option>
+            <option value="여름/겨울 방학 시즌">🏖️ 종강 & 방학 시즌</option>
+            <option value="개강 및 정규 학기">🎒 정규 학기 수업 기간</option>
+            <option value="취업 준비 / 휴학">💼 인턴 / 휴학 / 취준생</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 서비스별 이용 횟수 슬라이더 컨테이너 -->
+      <div id="usageSlidersList" class="usage-sliders-list">
+        <!-- script.js에서 동적 생성 -->
+      </div>
+
+      <!-- 리밸런싱 리포트 생성 버튼 -->
+      <div class="rebalance-action-area">
+        <button id="generateReportBtn" class="btn-primary btn-large" type="button">
+          <span class="btn-icon">✨</span>
+          <span class="btn-text">OpenRouter AI로 맞춤 리밸런싱 리포트 생성하기</span>
+        </button>
+      </div>
+
+      <!-- 2단계 로딩 인디케이터 -->
+      <div id="rebalanceLoading" class="loading-area hidden">
+        <div class="spinner"></div>
+        <p class="loading-text">NVIDIA Nemotron AI가 가성비와 절감 옵션을 분석 중입니다...</p>
+        <p class="loading-sub">최적의 파티원 분담 및 대학생 할인 혜택을 매칭하고 있습니다.</p>
+      </div>
+
+      <!-- ==============================================================================
+           AI 리포트 출력 컨테이너
+           ============================================================================== -->
+      <div id="reportContainer" class="report-container hidden">
+        <!-- 1) 핀테크 금융 요약 히어로 카드 -->
+        <div class="savings-hero-card">
+          <div class="hero-card-left">
+            <span class="savings-tag">💡 이번 달 찾은 숨은 돈</span>
+            <h3 class="savings-amount-title">
+              매달 <span id="monthlySavingsText" class="highlight-green">0원</span> 절약 가능!
+            </h3>
+            <p id="annualSavingsText" class="annual-savings-desc">연간 누적 약 0원 절감 효과</p>
+          </div>
+          <div class="hero-card-right">
+            <div class="impact-badge-box">
+              <span class="impact-icon">🍱</span>
+              <p id="studentImpactText" class="impact-text">학식 7그릇을 공짜로 드실 수 있어요!</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2) 해지 추천 Top 3 (Kill List) -->
+        <div class="report-block">
+          <div class="block-header">
+            <h4 class="block-title text-danger">🚨 해지 추천 Top 3 (좀비 구독 긴급 점검)</h4>
+            <span class="block-badge badge-danger">이용 빈도 대비 비용 과다</span>
+          </div>
+          <div id="killListGrid" class="kill-list-grid">
+            <!-- script.js에서 동적 렌더링 -->
+          </div>
+        </div>
+
+        <!-- 3) 요금제 전환 및 파티 분담 추천 (Swap List) -->
+        <div class="report-block">
+          <div class="block-header">
+            <h4 class="block-title text-primary">🔄 스마트 전환 & 대학생 할인 제안</h4>
+            <span class="block-badge badge-primary">계정 공유 및 @ac.kr 혜택</span>
+          </div>
+          <div id="swapListGrid" class="swap-list-grid">
+            <!-- script.js에서 동적 렌더링 -->
+          </div>
+        </div>
+
+        <!-- 4) 학사 주기 맞춤 라이프사이클 조언 -->
+        <div class="report-block lifecycle-block">
+          <div class="block-header">
+            <h4 class="block-title">🎓 캠퍼스 라이프사이클 솔루션</h4>
+          </div>
+          <div class="advice-bubble">
+            <span class="robot-avatar">🤖</span>
+            <p id="lifecycleAdviceText" class="advice-text"></p>
+          </div>
+        </div>
+
+        <!-- 3단계 대시보드 및 노션 저장 연동 바 -->
+        <div class="report-footer-bar">
+          <div class="footer-btn-group">
+            <button id="saveReportToNotionBtn" class="btn-secondary" type="button">
+              📝 팀 노션 [AI Reports]에 리포트 저장
+            </button>
+            <button id="goToStep3Btn" class="btn-primary" type="button">
+              3단계: 통합 프로필 & 성과 대시보드로 이동 ›
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==============================================================================
+         3단계: 대학생 프로필 구축, 노션 연동 및 통합 관리 (대시보드)
+         ============================================================================== -->
+    <section id="step3Section" class="step3-section hidden">
+      <!-- 3단계 헤더 -->
+      <div class="step3-header">
+        <div>
+          <span class="step-badge step-badge-green">3단계 통합 관리</span>
+          <h2 class="step3-title">대학생 스마트 금융 대시보드 & 노션 동기화 📊</h2>
+          <p class="step3-desc">용돈/알바비 예산 관리, 결제 D-3 자동 방어, 그리고 팀 노션과의 실시간 동기화를 지원합니다.</p>
+        </div>
+        <!-- 노션 연동 상태 뱃지 -->
+        <div class="notion-badge-wrapper">
+          <span id="notionStatusBadge" class="notion-badge">
+            <span class="notion-icon">📓</span>
+            <span id="notionStatusText">노션 연동 확인 중...</span>
+          </span>
+          <button id="syncNotionBtn" class="btn-notion-sync" type="button" title="노션과 실시간 동기화">
+            🔄 실시간 Sync
+          </button>
+        </div>
+      </div>
+
+      <!-- 결제 예정일 D-3 알림 배너 (3일 이내 결제 건이 있을 시 동적 노출) -->
+      <div id="d3AlertBanner" class="d3-alert-banner hidden">
+        <div class="alert-icon-area">⚡</div>
+        <div class="alert-content-area">
+          <h4 id="d3AlertTitle" class="alert-title">결제 예정일 D-3 알림: 불필요한 자동 갱신을 방어하세요!</h4>
+          <p id="d3AlertDesc" class="alert-desc">쿠팡 와우 멤버십이 3일 뒤 결제 예정입니다. 쓰지 않는다면 지금 바로 해지하세요.</p>
+        </div>
+        <button id="openCancelGuideBtn" class="btn-defrost" type="button">
+          30초 해지 가이드 열기 ↗
+        </button>
+      </div>
+
+      <!-- 상단 그리드: 대학생 프로필 & 예산 관리 vs 노션 워크스페이스 상태 -->
+      <div class="dashboard-grid-2">
+        <!-- 프로필 및 예산 게이지 카드 -->
+        <div class="dash-card profile-card">
+          <div class="dash-card-header">
+            <h3 class="dash-card-title">🎓 나의 대학생 프로필 & 고정비 예산</h3>
+            <span class="badge-pill">실시간 반영</span>
+          </div>
+
+          <div class="profile-input-grid">
+            <div class="profile-field">
+              <label for="monthlyIncomeInput" class="profile-label">월 소득 (알바비 + 용돈):</label>
+              <div class="input-unit-group">
+                <input type="number" id="monthlyIncomeInput" class="dash-input" value="650000" step="10000">
+                <span class="input-unit">원</span>
+              </div>
+            </div>
+            <div class="profile-field">
+              <label for="targetBudgetInput" class="profile-label">월 목표 고정비 상한 (권장 5~10%):</label>
+              <div class="input-unit-group">
+                <input type="number" id="targetBudgetInput" class="dash-input" value="35000" step="5000">
+                <span class="input-unit">원</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 예산 대비 지출 게이지 바 -->
+          <div class="budget-gauge-wrapper">
+            <div class="gauge-labels">
+              <span>현재 고정 지출: <strong id="gaugeCurrentSpendText">0원</strong></span>
+              <span>목표: <strong id="gaugeTargetBudgetText">35,000원</strong></span>
+            </div>
+            <div class="gauge-bar-bg">
+              <div id="gaugeBarFill" class="gauge-bar-fill" style="width: 50%;"></div>
+            </div>
+            <p id="gaugeStatusMessage" class="gauge-status-msg">✅ 목표 예산 내에서 안전하게 지출 중입니다.</p>
+          </div>
+        </div>
+
+        <!-- 팀 노션 데이터베이스 상태 카드 -->
+        <div class="dash-card notion-summary-card">
+          <div class="dash-card-header">
+            <h3 class="dash-card-title">📓 팀 노션 데이터베이스 (4대 DB 통합)</h3>
+            <span id="notionDbPill" class="badge-pill badge-pill-gray">ID: ad677b...</span>
+          </div>
+          <p class="dash-card-desc">
+            팀 공유 노션 페이지와 연동되어 구독 목록, AI 리밸런싱 보고서, 누적 절감액이 자동 동기화됩니다.
+          </p>
+
+          <div class="notion-guide-box">
+            <h5 class="guide-box-title">💡 팀 노션 페이지 연결 방법 (1회 설정)</h5>
+            <ol class="guide-steps">
+              <li>공유 노션 페이지 우측 상단 <code>···</code> (메뉴) 클릭</li>
+              <li><code>연결(Connect)</code> 클릭 후 <strong>"9조"</strong> 검색하여 추가</li>
+              <li>상단의 <code>[🔄 실시간 Sync]</code> 버튼을 누르면 즉시 동기화 완료!</li>
+            </ol>
+          </div>
+
+          <div class="notion-action-row">
+            <button id="pushAllToNotionBtn" class="btn-secondary btn-full" type="button">
+              📤 현재 구독 목록을 노션 DB로 일괄 전송
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 하단 그리드: Savings Tracker 차트 & 카테고리 비중 -->
+      <div class="dashboard-grid-2" style="margin-top: 24px;">
+        <!-- 1) 누적 절감액 추이 차트 (Canvas) -->
+        <div class="dash-card chart-card">
+          <div class="dash-card-header">
+            <h3 class="dash-card-title">📈 절감 성과 트래커 (Savings Tracker)</h3>
+            <span class="savings-total-badge" id="totalSavedBadge">누적 절감: 0원</span>
+          </div>
+          <p class="chart-desc">해지 및 요금제 전환으로 방어한 누적 절감액 추이입니다.</p>
+          <div class="canvas-container">
+            <canvas id="savingsChart" width="450" height="220"></canvas>
+          </div>
+        </div>
+
+        <!-- 2) 카테고리별 지출 도넛 차트 (Canvas) -->
+        <div class="dash-card chart-card">
+          <div class="dash-card-header">
+            <h3 class="dash-card-title">🍩 카테고리별 지출 비중</h3>
+            <span class="badge-pill" id="totalActiveSubsCount">총 0개 서비스</span>
+          </div>
+          <p class="chart-desc">어느 분야에 고정비가 많이 나가고 있는지 한눈에 비교하세요.</p>
+          <div class="canvas-container donut-layout">
+            <canvas id="categoryDonutChart" width="220" height="220"></canvas>
+            <div id="donutLegend" class="donut-legend">
+              <!-- script.js에서 범례 동적 생성 -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 활성 구독 인벤토리 및 즉시 해지 관리 리스트 -->
+      <div class="dash-card" style="margin-top: 24px;">
+        <div class="dash-card-header">
+          <h3 class="dash-card-title">📋 내 활성 구독 인벤토리</h3>
+          <span class="badge-pill badge-pill-blue">D-Day 결제일 트래킹</span>
+        </div>
+        <div id="inventoryTableWrapper" class="inventory-table-wrapper">
+          <table class="inventory-table">
+            <thead>
+              <tr>
+                <th>서비스명</th>
+                <th>카테고리</th>
+                <th>월 결제 금액</th>
+                <th>결제일</th>
+                <th>D-Day</th>
+                <th>상태 / 액션</th>
+              </tr>
+            </thead>
+            <tbody id="inventoryTableBody">
+              <!-- script.js에서 동적 생성 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==============================================================================
+         30초 초간단 해지 가이드 팝업 모달
+         ============================================================================== -->
+    <div id="cancelGuideModal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 class="modal-title" id="cancelModalTitle">🚨 30초 초간단 해지 가이드</h3>
+          <button id="closeModalBtn" class="btn-close-modal" type="button">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="cancel-step-item">
+            <span class="step-circle">1</span>
+            <div>
+              <h5 class="step-title">공식 계정 설정 페이지 바로가기</h5>
+              <p class="step-desc">다크 패턴을 우회하여 멤버십 해지 페이지로 바로 이동합니다.</p>
+              <a id="modalDirectLink" href="#" target="_blank" rel="noopener noreferrer" class="btn-primary btn-sm" style="margin-top: 8px; display: inline-block;">
+                공식 해지 설정 페이지로 이동 ↗
+              </a>
+            </div>
+          </div>
+          <div class="cancel-step-item">
+            <span class="step-circle">2</span>
+            <div>
+              <h5 class="step-title">3스텝 캡처 가이드</h5>
+              <p class="step-desc"><code>프로필</code> › <code>계정 설정</code> › <code>멤버십/구독 해지</code> 클릭</p>
+            </div>
+          </div>
+          <div class="cancel-step-item">
+            <span class="step-circle">3</span>
+            <div>
+              <h5 class="step-title">다크 넛지 방어 팁</h5>
+              <p class="step-desc">"혜택을 포기하시겠습니까?" 팝업 시 <strong>[혜택 포기하고 계속 해지]</strong> 및 사유는 <strong>[기타]</strong>를 선택하면 즉시 해지됩니다.</p>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="confirmCancelSubBtn" class="btn-danger" type="button">
+            ✅ 해지 완료 확인 (절감액 적립 및 노션 반영)
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 푸터 -->
+  <footer class="app-footer">
+    <p>AI개발과 실전 9조 팀프로젝트 • 대학생용 스마트 구독 & 고정 지출 리밸런싱 AI</p>
+  </footer>
+
+  <!-- 메인 스크립트 연결 -->
+  <script src="script.js"></script>
+</body>
+</html>
